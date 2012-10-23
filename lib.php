@@ -1,27 +1,46 @@
 <?php
 
+
+/*function local_cicei_snatools_extends_navigation(global_navigation $nav) {
+    global $PAGE;
+
+}*/
+
 /**
  * Adds specific settings to the settings block
  *
- * @param navigation_node $nav Current navigation object
+ * @param settings_navigation $nav Current settings navigation object
+ * @param context $context Current context
  */
-function cicei_snatools_extends_navigation($nav) {
-    global $PAGE;
+function local_cicei_snatools_extends_settings_navigation(settings_navigation $nav, context $context) {
+    // If plugin is enabled and user can use it add links
+    if (get_config('local_cicei_snatools', 'enabled') && has_capability('local/cicei_snatools:use', $context)) {
 
-    // If we are in context module add conditional edition page link
-    /*if ($PAGE->context->contextlevel == CONTEXT_MODULE &&
-            $PAGE->settingsnav &&
-            $PAGE->course->useconditionals &&
-            get_config('local_ciceiconditional', 'enableconditionals') &&
-            has_capability('local/ciceiconditional:createconditionals', $PAGE->context)) {
-        // Node with key 0 its the first settings node
-        // Note: If menu doesn't appear try to uncomment the next line to see node keys
-        //print_object($PAGE->settingsnav->get_children_key_list());
-        $settingsnode = $PAGE->settingsnav->get(0);
-        $icon = new pix_icon('lock_edit', '', 'local_ciceiconditional');
-        $url = new moodle_url('/local/ciceiconditional/conditions.php', array('id' => $PAGE->cm->id, 'return' => true, 'sesskey' => sesskey()));
-        $settingsnode->add(get_string('activitylocks', 'local_ciceiconditional'), $url, navigation_node::TYPE_SETTING, null, 'activitylocks', $icon);
-    }*/
+        if ($context->contextlevel == CONTEXT_COURSE) {
+            $url = new moodle_url('/local/cicei_snatools/forum_analysis.php', array('courseid' => $context->instanceid));
+            $icon = new pix_icon('icon', '', 'local_cicei_snatools');
+            // select node to add link
+            $parentnode = $context->instanceid == 1 ? 'frontpage' : 'courseadmin';
+            $nav->get($parentnode)->add("SNA - Analyze course forums", $url, navigation_node::TYPE_SETTING, null, 'forumcoursesna', $icon);
+        }
+
+        if ($context->contextlevel == CONTEXT_MODULE) {
+            // Check if this is a forum coursemodule
+            $cm = get_coursemodule_from_id('forum', $context->instanceid);
+            if ($cm) {
+                $d = optional_param('d', 0, PARAM_INT);
+                $params = array(
+                    'forumid' => $cm->instance,
+                    'discussionid' => $d,
+                );
+
+                $text = $d ? "SNA - Analyze this discussion" : "SNA - Analyze this forum";
+                $url = new moodle_url('/local/cicei_snatools/forum_analysis.php', $params);
+                $icon = new pix_icon('icon', '', 'local_cicei_snatools');
+                // 0 is the forum admin node
+                $nav->get(0)->add($text, $url, navigation_node::TYPE_SETTING, null, 'forummodulesna', $icon);
+            }
+        }
+    }
 }
-
 ?>
