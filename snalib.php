@@ -7,8 +7,11 @@ interface SNA_Analyzer {
 interface SNA_Matrix {
     function getUsersVector();
     function getFixedDataMatrix();
-    function renderUsersVector();
-    function renderDataMatrix();
+    // table view
+    function renderTable();
+    // pajek view
+    function getPajekUsersVector();
+    function getPajekMatrix();
 }
 
 abstract class SNA_Tool implements SNA_Analyzer, SNA_Matrix {
@@ -60,7 +63,7 @@ abstract class SNA_Tool implements SNA_Analyzer, SNA_Matrix {
         return $this->fixed_data_array;
     }
 
-    public function renderDataMatrix($return = false) {
+    public function renderTable($return = false) {
         global $DB;
         global $OUTPUT;
 
@@ -73,17 +76,9 @@ abstract class SNA_Tool implements SNA_Analyzer, SNA_Matrix {
 
         $table = new html_table();
         $table->head[] = "";
-        //$table->align = array("CENTER", "LEFT");
 
-        /*foreach ($this->users_array as $userid1) {
-            $table->head[] = $userid1;
-            $row = array();
-            $row[] = "<strong>$userid1</strong>";
-            foreach ($this->users_array as $userid2) {
-                 $row[] = $this->data_array[$userid1][$userid2];
-            }
-            $table->data[] = $row;
-        }*/
+        // Basic cell style
+        $cellstyle = 'text-align: center; vertical-align: middle;';
 
         $users = $DB->get_records_list('user', 'id', array_values($this->users_array));
         foreach ($this->users_array as $userid1) {
@@ -91,18 +86,20 @@ abstract class SNA_Tool implements SNA_Analyzer, SNA_Matrix {
             $table->head[] = $user_pic;
             $row = array();
             $row[] = $user_pic;
+            $totalcount = 0;
             foreach ($this->users_array as $userid2) {
-                $style = 'text-align: center; vertical-align: middle;';
                 if (isset($this->data_array[$userid1][$userid2])) {
-                    $style .= 'font-weight: bold; ';
                     $cellcontent = $this->data_array[$userid1][$userid2];
+                    $totalcount += $cellcontent;
                 } else {
                     $cellcontent = ' ';
                 }
-                $row[] = html_writer::tag('div', $cellcontent, array('style' => $style));
+                $row[] = html_writer::tag('div', $cellcontent, array('style' => $cellstyle));
             }
+            $row[] = html_writer::tag('div', $totalcount, array('style' =>  $cellstyle . ' font-weight: bold; font-size: 110%;'));
             $table->data[] = $row;
         }
+        $table->head[] = "Totals";
 
         if ($return) {
             return html_writer::table($table);
@@ -111,11 +108,41 @@ abstract class SNA_Tool implements SNA_Analyzer, SNA_Matrix {
         }
     }
 
-    public function renderUsersVector() {
+    public function getPajekMatrix() {
+        $this->getUsersVector();
+        $this->getFixedDataMatrix();
+        $usercounts = count($this->users_array);
+        $contents = '';
+        $contents .= "*Vertices $usercounts\n";
+        $contents .= "*Matrix\n";
+        foreach ($this->fixed_data_array as $row) {
+            foreach ($row as $cell) {
+                $contents .= "$cell ";
+            }
+            $contents = substr($contents, 0, -1);
+            $contents .= "\n";
+        }
 
+        return $contents;
     }
 
-    // Factory to create objects
+    public function getPajekUsersVector() {
+        global $DB;
+
+        $this->getUsersVector();
+        $users = $DB->get_records_list('user', 'id', array_values($this->users_array));
+        $count = 1;
+        $contents = '';
+        foreach ($this->users_array as $userid) {
+            $fullname = fullname($users[$userid]);
+            $contents .= "$count \"$fullname\"\n";
+            $count++;
+        }
+
+        return $contents;
+    }
+
+        // Factory to create objects
     static function create($function, $params = array()) {
         switch($function) {
             case 'collaboration':

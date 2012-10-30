@@ -30,7 +30,7 @@ switch ($searchcontext) {
         $course = $DB->get_record('course', array('id' => $id), '*', MUST_EXIST);
         $forum = NULL;
         $cm = NULL;
-        $title = "Forum Analysis tool - $course->name";
+        $title = "Forum Analysis tool - $course->fullname";
         break;
     case 'forum':
         $cm = get_coursemodule_from_instance('forum', $id);
@@ -104,7 +104,31 @@ if ($fromform = $mform_post->get_data()) {
     // Run analysis
     $result = $tool->analyze();
     if (empty($result)) {
-        $tool->renderDataMatrix();
+        echo $OUTPUT->heading("Results");
+
+        // Select view
+        switch($fromform->view) {
+            case 'table':
+                echo html_writer::tag('p', "How to read these results: each row represents a person collaboration with other people as the number of replies obtained to his forum posts");
+                echo html_writer::start_tag('center');
+                $tool->renderTable();
+                echo html_writer::end_tag('center');
+                break;
+            case 'pajek':
+                echo html_writer::tag('p', "Hint: copy and paste these contents into a file and open it with Pajek. Users Array is not needed to represent the matrix.");
+                $pajekusersvector = $tool->getPajekUsersVector();
+                $pajekmatrix = $tool->getPajekMatrix();
+
+                echo $OUTPUT->heading("Users array");
+                echo $OUTPUT->box("<pre><code>$pajekusersvector</code></pre>");
+
+                echo $OUTPUT->heading("Matrix");
+                echo $OUTPUT->box("<pre><code>$pajekmatrix</code></pre>");
+                break;
+            case 'graph':
+                //$PAGE->requires->js('path/to/plugin/javascript/jquery-1.4.2.min.js');
+                break;
+        }
     } else {
         notify($result);
     }

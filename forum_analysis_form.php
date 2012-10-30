@@ -70,6 +70,13 @@ class local_cicei_snatools_forum_analysis_form extends moodleform {
         );
         $mform->addElement('select', 'function', 'Select function to execute', $functions);
 
+        $views = array(
+            'table' => "Table",
+            'graph' => "Visualize nodes graph",
+            'pajek' => "Pajek users array file and matrix file",
+        );
+        $mform->addElement('select', 'view', 'Select form of view', $views);
+
         // Add submit button
         $this->add_action_buttons(false, 'Analyze');
     }
