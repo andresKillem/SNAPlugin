@@ -17,7 +17,11 @@ function local_cicei_snatools_extends_settings_navigation(settings_navigation $n
     if (get_config('local_cicei_snatools', 'enabled') && has_capability('local/cicei_snatools:use', $context)) {
 
         if ($context->contextlevel == CONTEXT_COURSE) {
-            $url = new moodle_url('/local/cicei_snatools/forum_analysis.php', array('courseid' => $context->instanceid));
+            $params = array(
+                'searchcontext' => 'course',
+                'id' => $context->instanceid
+            );
+            $url = new moodle_url('/local/cicei_snatools/forum_analysis.php', $params);
             $icon = new pix_icon('icon', '', 'local_cicei_snatools');
             // select node to add link
             $parentnode = $context->instanceid == 1 ? 'frontpage' : 'courseadmin';
@@ -29,10 +33,17 @@ function local_cicei_snatools_extends_settings_navigation(settings_navigation $n
             $cm = get_coursemodule_from_id('forum', $context->instanceid);
             if ($cm) {
                 $d = optional_param('d', 0, PARAM_INT);
-                $params = array(
-                    'forumid' => $cm->instance,
-                    'discussionid' => $d,
-                );
+                if ($d) {
+                    $params = array(
+                        'searchcontext' => 'discussion',
+                        'id' => $d,
+                    );
+                } else {
+                    $params = array(
+                        'searchcontext' => 'forum',
+                        'id' => $cm->instance,
+                    );
+                }
 
                 $text = $d ? "SNA - Analyze this discussion" : "SNA - Analyze this forum";
                 $url = new moodle_url('/local/cicei_snatools/forum_analysis.php', $params);

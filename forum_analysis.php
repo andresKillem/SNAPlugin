@@ -6,39 +6,55 @@ require_once('./snalib.php');
 global $PAGE, $DB, $OUTPUT, $CFG;
 
 // Input params
-$courseid = optional_param('courseid', 0, PARAM_INT);
-$forumid = optional_param('forumid', 0, PARAM_INT);
-$discussionid = optional_param('discussionid', 0, PARAM_INT);
+$searchcontext = required_param('searchcontext', PARAM_ALPHANUMEXT);
+$id = required_param('id', PARAM_INT);
 
 // Build url
-$params = array();
-if ($courseid) {
-    $params['courseid'] = $courseid;
-}
-if ($forumid) {
-    $params['forumid'] = $forumid;
-}
-if ($discussionid) {
-    $params['discussionid'] = $discussionid;
-}
-$PAGE->set_url('/local/cicei_snatools/forum_analysis.php', $params);
+$params = array(
+    'searchcontext' => $searchcontext,
+    'id' => $id,
+);
+$page_url= new moodle_url('/local/cicei_snatools/forum_analysis.php', $params);
+$PAGE->set_url($page_url);
 
+// Init vars
+$context = NULL;
+$cm = NULL;
+$course = NULL;
+$forum = NULL;
+$discussion = NULL;
 // Get course and context
-if ($forumid) {
-    $cm = get_coursemodule_from_instance('forum', $forumid);
-    $context = context_module::instance($cm->id);
-    $course = $DB->get_record("course", array("id" => $cm->course));
-} else {
-    $context = context_course::instance($courseid);
-    $course = $DB->get_record("course", array("id" => $courseid));
-    $cm = NULL;
+switch ($searchcontext) {
+    case 'course':
+        $context = context_course::instance($id);
+        $course = $DB->get_record('course', array('id' => $id), '*', MUST_EXIST);
+        $forum = NULL;
+        $cm = NULL;
+        $title = "Forum Analysis tool - $course->name";
+        break;
+    case 'forum':
+        $cm = get_coursemodule_from_instance('forum', $id);
+        $context = context_module::instance($cm->id);
+        $course = $DB->get_record('course', array('id' => $cm->course), '*', MUST_EXIST);
+        $forum = $DB->get_record('forum', array('id' => $id), '*', MUST_EXIST);
+        $title = "Forum Analysis tool - $forum->name";
+        break;
+    case 'discussion':
+        $discussion = $DB->get_record('forum_discussions', array('id' => $id), '*', MUST_EXIST);
+        $cm = get_coursemodule_from_instance('forum', $discussion->forum);
+        $context = context_module::instance($cm->id);
+        $course = $DB->get_record('course', array('id' => $cm->course), '*', MUST_EXIST);
+        $forum = $DB->get_record('forum', array('id' => $discussion->forum), '*', MUST_EXIST);
+        $title = "Forum Analysis tool - $discussion->title";
+        break;
+    default:
+        notice("Input error");
 }
 
 // Check login
 require_course_login($course, true, $cm);
 
 // Configure page
-$title = "Forum Analysis tool";
 $PAGE->set_context($context);
 $PAGE->set_title($title);
 $PAGE->set_heading(format_string($course->fullname));
@@ -60,16 +76,39 @@ require_capability('local/cicei_snatools:use', $context);
 // Form to config analysis
 require_once('forum_analysis_form.php');
 
-$mform_post = new local_cicei_snatools_forum_analysis_form('forum_analysys.php', array(/*'course'=>$course, 'cm'=>$cm, 'coursecontext'=>$coursecontext, 'modcontext'=>$modcontext, 'forum'=>$forum, 'post'=>$post*/));
+// Create form
+$custom_data = array(
+    'course' => $course,
+    'forum' => $forum,
+    'searchcontext' => $searchcontext,
+    'id' => $id,
+);
+$mform_post = new local_cicei_snatools_forum_analysis_form($page_url, $custom_data);
 
-$mform_post->set_data(array());
+// Set form defaults
+//$mform_post->set_data(array());
 
-if ($fromform = $mform_post->get_data()) {
-    print_object($fromform);
-}
+// show form
 $mform_post->display();
 
 // Analysis results
+// Try to get data form form
+if ($fromform = $mform_post->get_data()) {
+    //print_object($fromform);
+    $fromform->searchcontext = $searchcontext;
+    $fromform->course = $course;
+    $fromform->forum = $forum;
+    $fromform->discussion = $discussion;
+    // Init analysis object
+    $tool = SNA_Tool::create($fromform->function, $fromform);
+    // Run analysis
+    $result = $tool->analyze();
+    if (empty($result)) {
+        $tool->renderDataMatrix();
+    } else {
+        notify($result);
+    }
+}
 
 // End page
 echo $OUTPUT->footer($course);
