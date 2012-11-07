@@ -12,6 +12,8 @@ interface SNA_Matrix {
     // pajek view
     function getPajekUsersVector();
     function getPajekMatrix();
+    // graph view
+    function renderGraph();
 }
 
 abstract class SNA_Tool implements SNA_Analyzer, SNA_Matrix {
@@ -142,7 +144,53 @@ abstract class SNA_Tool implements SNA_Analyzer, SNA_Matrix {
         return $contents;
     }
 
-        // Factory to create objects
+    public function renderGraph() {
+        global $DB, $OUTPUT;
+        //global $PAGE;
+        //$PAGE->requires->js('/local/cicei_snatools/vendors/jquery/jquery-1.8.2.min.js');
+        //$PAGE->requires->js('/local/cicei_snatools/vendors/Jit/jit-yc.js');
+
+        $this->getUsersVector();
+        $users = $DB->get_records_list('user', 'id', array_values($this->users_array));
+
+        $node_list = array();
+        $count = 0;
+        foreach ($this->users_array as $userid1) {
+            //if ($count++ > 10) break;
+            $node = new stdClass();
+            $node->id = (string)$userid1;
+            $node->name = fullname($users[$userid1]);
+            $node->data = new stdClass();
+            $node->data->photohtml = $OUTPUT->user_picture($users[$userid1], array('size' => 25, 'popup' => true));
+            //$node->data->$dim = 13.077119090372014;
+            //$node->data->$type = "square"
+            $node->adjacencies = array();
+            if (isset($this->data_array[$userid1])) {
+                foreach ($this->data_array[$userid1] as $userid2 => $data) {
+                    $inner_node = new stdClass();
+                    $inner_node->nodeTo = (string)$userid2;
+                    $inner_node->data = new stdClass();
+                    $accesor = '$type';
+                    $inner_node->data->$accesor = "arrow";
+                    $accesor = '$direction';
+                    $inner_node->data->$accesor = array((string)$userid2, (string)$userid1);
+                    $accesor = '$dim';
+                    $inner_node->data->$accesor = 8;
+                    //$inner_node->data->$color = "dd99dd";
+                    $inner_node->data->weight = (int)$data;
+                    $node->adjacencies[] = $inner_node;
+                }
+            }
+            $node_list[] = $node;
+        }
+        //$graph = "RGraph";
+        //$graph = "Hypertree";
+        $graph = "ForceDirected";
+        $json = json_encode($node_list);
+        include 'jit_graph.php';
+    }
+
+    // Factory to create objects
     static function create($function, $params = array()) {
         switch($function) {
             case 'collaboration':
@@ -178,7 +226,7 @@ class SNA_CourseCollaboration extends SNA_Tool {
             $data = & $this->data_array;
 
             // Select forums to analyze
-            if (in_array(0, $this->forumsids) || is_empty($forumsids)) {
+            if (in_array(0, $this->forumsids) || empty($forumsids)) {
                 $forums = $DB->get_records('forum', array('course' => $this->course->id), '', 'id');
             } else {
                 $forums = $DB->get_records_list('forum', 'id', $this->forumsids);

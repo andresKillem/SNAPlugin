@@ -72,7 +72,7 @@ class local_cicei_snatools_forum_analysis_form extends moodleform {
 
         $views = array(
             'table' => "Table",
-            'graph' => "Visualize nodes graph",
+            'graph' => "Nodes graph",
             'pajek' => "Pajek users array file and matrix file",
         );
         $mform->addElement('select', 'view', 'Select form of view', $views);

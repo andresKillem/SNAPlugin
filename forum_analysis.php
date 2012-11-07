@@ -45,7 +45,7 @@ switch ($searchcontext) {
         $context = context_module::instance($cm->id);
         $course = $DB->get_record('course', array('id' => $cm->course), '*', MUST_EXIST);
         $forum = $DB->get_record('forum', array('id' => $discussion->forum), '*', MUST_EXIST);
-        $title = "Forum Analysis tool - $discussion->title";
+        $title = "Forum Analysis tool - $discussion->name";
         break;
     default:
         notice("Input error");
@@ -126,7 +126,7 @@ if ($fromform = $mform_post->get_data()) {
                 echo $OUTPUT->box("<pre><code>$pajekmatrix</code></pre>");
                 break;
             case 'graph':
-                //$PAGE->requires->js('path/to/plugin/javascript/jquery-1.4.2.min.js');
+                $tool->renderGraph();
                 break;
         }
     } else {
