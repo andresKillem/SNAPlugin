@@ -58,7 +58,7 @@ require_course_login($course, true, $cm);
 $PAGE->set_context($context);
 $PAGE->set_title($title);
 $PAGE->set_heading(format_string($course->fullname));
-$PAGE->set_pagelayout('admin');
+$PAGE->set_pagelayout('base');
 $PAGE->navbar->add($title);
 
 // Begin page
@@ -109,8 +109,8 @@ if ($fromform = $mform_post->get_data()) {
         // Select view
         switch($fromform->view) {
             case 'table':
-                echo html_writer::tag('p', "How to read these results: each row represents a person collaboration with other people as the number of replies obtained to his forum posts");
                 echo html_writer::start_tag('center');
+                echo html_writer::tag('p', "How to read these results: each row represents a person collaboration with other people as the number of replies obtained to his forum posts");
                 $tool->renderTable();
                 echo html_writer::end_tag('center');
                 break;

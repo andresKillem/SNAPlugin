@@ -69,44 +69,106 @@ abstract class SNA_Tool implements SNA_Analyzer, SNA_Matrix {
         global $DB;
         global $OUTPUT;
 
-        //print_object($this->users_array);
-        //print_object($this->data_array);
+        // Get max value in data array
+        $max_value = SNAToolUtils::matrix_max($this->data_array);
+
+        // Calculate user vector
         $this->getUsersVector();
-        //$this->getFixedDataMatrix();
-        //print_object($this->users_array);
-        //print_object($this->data_array);
 
+        // Basic cell styles
+        $cellstyle = 'text-align: center; color: #ffffcc; font-weight: bold; padding: 1px; line-height: 25px;';
+        $firstcellstyle = 'background-color: #EEEEEE; background-image: none; text-align: center; padding: 1px;';
+        $lastcellstyle = 'background-color: #EEEEEE; font-weight: bold; line-height: 25px; text-align: center; padding: 1px;';
+
+        // 6 levels of colors
+        $colors = array(
+            'background-color: #FFF4E6;',
+            'background-color: #F4CD97;',
+            'background-color: #D69B79;',
+            'background-color: #B8695B;',
+            'background-color: #9A373D;',
+            'background-color: #7C051F;'
+        );
+
+        // Build table
         $table = new html_table();
-        $table->head[] = "";
+        //$table->attributes = array('class' => 'ars-table');
 
-        // Basic cell style
-        $cellstyle = 'text-align: center; vertical-align: middle;';
+        // Header
+        $cell = new html_table_cell();
+        $cell->style = $firstcellstyle;
+        $cell->text = "Receptor \ Emisor";
+        $table->head[] = $cell;
 
         $users = $DB->get_records_list('user', 'id', array_values($this->users_array));
         foreach ($this->users_array as $userid1) {
+            // Start a new row
+            $row = new html_table_row();
+
             $user_pic = $OUTPUT->user_picture($users[$userid1], array('size' => 25, 'popup' => true));
-            $table->head[] = $user_pic;
-            $row = array();
-            $row[] = $user_pic;
+
+            // First cell has user pic
+            $cell = new html_table_cell();
+            $cell->style = $firstcellstyle;
+            $cell->text = $user_pic;
+            $row->cells[] = $cell;
+            $table->head[] = $cell;
+
             $totalcount = 0;
+            // Add a cell for each user relation
             foreach ($this->users_array as $userid2) {
                 if (isset($this->data_array[$userid1][$userid2])) {
                     $cellcontent = $this->data_array[$userid1][$userid2];
+                    $logscaled = round((log($this->data_array[$userid1][$userid2]) / log($max_value + .0001)) * count($colors));
+                    if ($logscaled >= count($colors)) $logscaled--;
+                    else if ($logscaled <= 0) $logscaled = 1;
+                    $cellcolor = $colors[$logscaled];
                     $totalcount += $cellcontent;
                 } else {
-                    $cellcontent = ' ';
+                    $cellcontent = '';
+                    $cellcolor = $colors[0];
                 }
-                $row[] = html_writer::tag('div', $cellcontent, array('style' => $cellstyle));
+                $cell = new html_table_cell();
+                $cell->style = $cellstyle.$cellcolor;
+                $cell->text = $cellcontent;
+                $row->cells[] = $cell;
             }
-            $row[] = html_writer::tag('div', $totalcount, array('style' =>  $cellstyle . ' font-weight: bold; font-size: 110%;'));
+
+            // Last cell has total
+            $cell = new html_table_cell();
+            $cell->style = $lastcellstyle;
+            $cell->text = $totalcount;
+            $row->cells[] = $cell;
+
+            // Add row to table
             $table->data[] = $row;
         }
-        $table->head[] = "Totals";
+
+        // last header cell
+        $cell = new html_table_cell();
+        $cell->style = $firstcellstyle;
+        $cell->text = "Total";
+        $table->head[] = $cell;
+
+        // legend table
+        $legend_table = new html_table();
+        $legend_row = new html_table_row();
+        foreach ($colors as $color) {
+            $cell = new html_table_cell();
+            $cell->style = $cellstyle.$color."width: 25px; height: 25px;";
+            $cell->text = "";
+            $legend_row->cells[] = $cell;
+        }
+        $legend_table->data[] = $legend_row;
+        $cell = new html_table_cell();
+        $cell->colspan = 6;
+        $cell->text = "Legend";
+        $legend_table->head[] = $cell;
 
         if ($return) {
-            return html_writer::table($table);
+            return html_writer::table($legend_table) . html_writer::table($table);
         } else {
-            echo html_writer::table($table);
+            echo html_writer::table($legend_table) . html_writer::table($table);
         }
     }
 
@@ -146,38 +208,39 @@ abstract class SNA_Tool implements SNA_Analyzer, SNA_Matrix {
 
     public function renderGraph() {
         global $DB, $OUTPUT;
-        //global $PAGE;
-        //$PAGE->requires->js('/local/cicei_snatools/vendors/jquery/jquery-1.8.2.min.js');
-        //$PAGE->requires->js('/local/cicei_snatools/vendors/Jit/jit-yc.js');
+
+        $max_value = SNAToolUtils::matrix_max($this->data_array);
 
         $this->getUsersVector();
         $users = $DB->get_records_list('user', 'id', array_values($this->users_array));
 
         $node_list = array();
-        $count = 0;
         foreach ($this->users_array as $userid1) {
-            //if ($count++ > 10) break;
             $node = new stdClass();
             $node->id = (string)$userid1;
             $node->name = fullname($users[$userid1]);
             $node->data = new stdClass();
             $node->data->photohtml = $OUTPUT->user_picture($users[$userid1], array('size' => 25, 'popup' => true));
-            //$node->data->$dim = 13.077119090372014;
-            //$node->data->$type = "square"
             $node->adjacencies = array();
             if (isset($this->data_array[$userid1])) {
                 foreach ($this->data_array[$userid1] as $userid2 => $data) {
                     $inner_node = new stdClass();
                     $inner_node->nodeTo = (string)$userid2;
                     $inner_node->data = new stdClass();
-                    $accesor = '$type';
-                    $inner_node->data->$accesor = "arrow";
-                    $accesor = '$direction';
-                    $inner_node->data->$accesor = array((string)$userid2, (string)$userid1);
-                    $accesor = '$dim';
-                    $inner_node->data->$accesor = 8;
-                    //$inner_node->data->$color = "dd99dd";
-                    $inner_node->data->weight = (int)$data;
+                    if (isset($this->data_array[$userid2]) && isset($this->data_array[$userid2][$userid1])) {
+                        $inner_node->data->{'$type'} = "double_arrow";
+                        $inner_node->data->{'$direction'} = array((string)$userid2, (string)$userid1);
+                        $inner_node->data->weight = (int)(($data + $this->data_array[$userid2][$userid1])/2);
+                        $inner_node->data->weight_in = (int)$data;
+                        $inner_node->data->weight_out = (int)$this->data_array[$userid2][$userid1];
+                    } else {
+                        $inner_node->data->{'$type'} = "arrow";
+                        $inner_node->data->{'$direction'} = array((string)$userid2, (string)$userid1);
+                        $inner_node->data->weight = (int)$data;
+                    }
+                    // log scaled value from 0 to 3
+                    //$inner_node->data->logweight = round((log((int)$data) / log($max_value + .0001)) * 3);
+                    $inner_node->data->logweight = (log((int)$data) / log($max_value + .0001)) * 3;
                     $node->adjacencies[] = $inner_node;
                 }
             }
@@ -226,7 +289,7 @@ class SNA_CourseCollaboration extends SNA_Tool {
             $data = & $this->data_array;
 
             // Select forums to analyze
-            if (in_array(0, $this->forumsids) || empty($forumsids)) {
+            if (in_array(0, $this->forumsids) || empty($this->forumsids)) {
                 $forums = $DB->get_records('forum', array('course' => $this->course->id), '', 'id');
             } else {
                 $forums = $DB->get_records_list('forum', 'id', $this->forumsids);
@@ -361,6 +424,19 @@ abstract class SNAToolUtils {
             }
         }
         return $matrix1;
+    }
+
+    // Function to search max value in a matrix
+    static function matrix_max($matrix) {
+        $max = ~PHP_INT_MAX;
+        foreach ($matrix as $userid1 => $values) {
+            foreach ($values as $userid2 => $value) {
+                if ($value > $max) {
+                    $max = $value;
+                }
+            }
+        }
+        return $max;
     }
 }
 ?>
