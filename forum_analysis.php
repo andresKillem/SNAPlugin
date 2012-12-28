@@ -125,8 +125,11 @@ if ($fromform = $mform_post->get_data()) {
                 echo $OUTPUT->heading("Matrix");
                 echo $OUTPUT->box("<pre><code>$pajekmatrix</code></pre>");
                 break;
-            case 'graph':
-                $tool->renderGraph();
+            case 'nodes':
+                $tool->renderNodesGraph();
+                break;
+            case 'bars':
+                $tool->renderBarsGraph();
                 break;
         }
     } else {

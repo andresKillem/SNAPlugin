@@ -12,8 +12,9 @@ interface SNA_Matrix {
     // pajek view
     function getPajekUsersVector();
     function getPajekMatrix();
-    // graph view
-    function renderGraph();
+    // graphs views
+    function renderNodesGraph();
+    function renderBarsGraph();
 }
 
 abstract class SNA_Tool implements SNA_Analyzer, SNA_Matrix {
@@ -179,9 +180,10 @@ abstract class SNA_Tool implements SNA_Analyzer, SNA_Matrix {
         $contents = '';
         $contents .= "*Vertices $usercounts\n";
         $contents .= "*Matrix\n";
-        foreach ($this->fixed_data_array as $row) {
-            foreach ($row as $cell) {
-                $contents .= "$cell ";
+
+        foreach ($this->users_array as $userid1) {
+            foreach ($this->users_array as $userid2) {
+                $contents .= $this->fixed_data_array[$userid1][$userid2] . " ";
             }
             $contents = substr($contents, 0, -1);
             $contents .= "\n";
@@ -206,7 +208,7 @@ abstract class SNA_Tool implements SNA_Analyzer, SNA_Matrix {
         return $contents;
     }
 
-    public function renderGraph() {
+    public function renderNodesGraph() {
         global $DB, $OUTPUT;
 
         $max_value = SNAToolUtils::matrix_max($this->data_array);
@@ -251,6 +253,43 @@ abstract class SNA_Tool implements SNA_Analyzer, SNA_Matrix {
         $graph = "ForceDirected";
         $json = json_encode($node_list);
         include 'jit_graph.php';
+    }
+
+    public function renderBarsGraph() {
+        global $DB, $OUTPUT;
+
+        $this->getUsersVector();
+        $this->getFixedDataMatrix();
+        $users = $DB->get_records_list('user', 'id', array_values($this->users_array));
+
+        $names = array();
+        $labels= array();
+        $comments_made = array();
+        $comments_received = array();
+
+        foreach ($this->users_array as $userid1) {
+            $names[$userid1] = fullname($users[$userid1]);
+            $labels[$userid1] = $OUTPUT->user_picture($users[$userid1], array('size' => 25, 'popup' => true));
+
+            $made = 0;
+            foreach ($this->fixed_data_array as $row) {
+                $made += $row[$userid1];
+            }
+            $comments_made[$userid1] = $made;
+
+            $received = 0;
+            foreach ($this->fixed_data_array[$userid1] as $userid2 => $data) {
+                $received += $data;
+            }
+            $comments_received[$userid1] = $received;
+        }
+
+        $names = json_encode(array_values($names));
+        $ticks = json_encode(array_values($labels));
+        $serie1 = json_encode(array_values($comments_made));
+        $serie2 = json_encode(array_values($comments_received));
+
+        include 'jqplot_graph.php';
     }
 
     // Factory to create objects
@@ -427,7 +466,7 @@ abstract class SNAToolUtils {
     }
 
     // Function to search max value in a matrix
-    static function matrix_max($matrix) {
+    static function matrix_max(array $matrix) {
         $max = ~PHP_INT_MAX;
         foreach ($matrix as $userid1 => $values) {
             foreach ($values as $userid2 => $value) {
