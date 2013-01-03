@@ -83,7 +83,7 @@ $custom_data = array(
     'searchcontext' => $searchcontext,
     'id' => $id,
 );
-$mform_post = new local_cicei_snatools_forum_analysis_form($page_url, $custom_data);
+$mform_post = new local_cicei_snatools_forum_analysis_form($page_url->out(false), $custom_data);
 
 // Set form defaults
 //$mform_post->set_data(array());

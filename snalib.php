@@ -18,6 +18,7 @@ interface SNA_Matrix {
 }
 
 abstract class SNA_Tool implements SNA_Analyzer, SNA_Matrix {
+    protected $params;
     protected $course;
     protected $users_array = array();
     protected $data_array = array();
@@ -256,20 +257,26 @@ abstract class SNA_Tool implements SNA_Analyzer, SNA_Matrix {
     }
 
     public function renderBarsGraph() {
-        global $DB, $OUTPUT;
+        global $DB, $OUTPUT, $COURSE;
 
         $this->getUsersVector();
         $this->getFixedDataMatrix();
         $users = $DB->get_records_list('user', 'id', array_values($this->users_array));
 
+        $roles_ids = $DB->get_records_list('role','shortname', array('manager', 'editingteacher', 'teacher'));
+        $context = get_context_instance(CONTEXT_COURSE, $COURSE->id);
+        $teachers = array_keys(get_role_users(array_keys($roles_ids), $context, true, 'u.id'));
+
         $names = array();
+        $isteacher = array();
         $labels= array();
         $comments_made = array();
         $comments_received = array();
 
         foreach ($this->users_array as $userid1) {
             $names[$userid1] = fullname($users[$userid1]);
-            $labels[$userid1] = $OUTPUT->user_picture($users[$userid1], array('size' => 25, 'popup' => true));
+            $isteacher[$userid1] = in_array($userid1, $teachers) ? 1 : 0;
+            $labels[$userid1] = $OUTPUT->user_picture($users[$userid1], array('size' => 23));
 
             $made = 0;
             foreach ($this->fixed_data_array as $row) {
@@ -284,10 +291,15 @@ abstract class SNA_Tool implements SNA_Analyzer, SNA_Matrix {
             $comments_received[$userid1] = $received;
         }
 
+        $user_ids = json_encode(array_values($this->users_array));
         $names = json_encode(array_values($names));
+        $isteacher = json_encode(array_values($isteacher));
         $ticks = json_encode(array_values($labels));
         $serie1 = json_encode(array_values($comments_made));
         $serie2 = json_encode(array_values($comments_received));
+
+        $forumsids = implode(',', $this->params->forumsids);
+        $discussionsids = implode(',', $this->params->discussionsids);
 
         include 'jqplot_graph.php';
     }
@@ -298,14 +310,23 @@ abstract class SNA_Tool implements SNA_Analyzer, SNA_Matrix {
             case 'collaboration':
                 switch ($params->searchcontext) {
                     case 'course':
-                        return new SNA_CourseCollaboration($params->course, $params->forumsids);
+                        $tool = new SNA_CourseCollaboration($params->course, $params->forumsids);
+                        break;
                     case 'forum':
-                        return new SNA_ForumCollaboration($params->forum, $params->discussionsids);
+                        $tool = new SNA_ForumCollaboration($params->forum, $params->discussionsids);
+                        break;
                     case 'discussion':
-                        return new SNA_DiscussionCollaboration($params->discussion);
+                        $tool = new SNA_DiscussionCollaboration($params->discussion);
+                        break;
+                    default:
+                        $tool = NULL;
+                        break;
                 }
         }
-        return NULL;
+        if ($tool !== NULL) {
+            $tool->params = $params;
+        }
+        return $tool;
     }
 }
 

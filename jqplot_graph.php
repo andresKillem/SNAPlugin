@@ -1,6 +1,6 @@
 <?php
 
-global $CFG;
+global $CFG, $OUTPUT, $PAGE;
 
 ?>
 
@@ -16,22 +16,29 @@ global $CFG;
 <script type="text/javascript" src="<?php echo $CFG->wwwroot ?>/local/cicei_snatools/vendors/jqplot/plugins/jqplot.canvasTextRenderer.min.js"></script>
 <script type="text/javascript" src="<?php echo $CFG->wwwroot ?>/local/cicei_snatools/vendors/jqplot/plugins/jqplot.canvasAxisLabelRenderer.min.js"></script>
 
+<div style="clear: both; text-align: center;">
+    <br>
+    <br>
+</div>
+
 <div style="clear: both;">
-    <div id="chart4" class="jqplot-target" style="width: 60%; height: 600px; float:left;">
+    <div id="chart4" class="jqplot-target" style="width: 60%; height: 600px;  float:left;">
     </div>
     <div style="width: 40%; float: left;">
-        <br>
-        <div class="tooltip" style="border: 1px solid #AAA; margin-left: 10px;">
+        <div class="tooltip" style="border: 1px solid #AAA; margin-left: 10px; height: 200px;">
             <table>
                 <tbody>
                     <tr>
-                        <td>Usuario: </td><td><div class="tooltip-item" id="tooltipAge" style="display: none; "></div></td>
+                        <td>Usuario: </td><td><div class="tooltip-item" id="tooltilpUser" style="display: none; "></div></td>
                     </tr>
                     <tr>
-                        <td>Aportaciones: </td><td><div class="tooltip-item" id="tooltipMale" style="display: none; "></div></td>
+                        <td>Rol: </td><td><div class="tooltip-item" id="tooltilpRole" style="display: none; "></div></td>
                     </tr>
                     <tr>
-                        <td>Respuestas: </td><td><div class="tooltip-item" id="tooltipFemale" style="display: none; "></div></td>
+                        <td>Aportaciones: </td><td><div class="tooltip-item" id="tooltipSerie1" style="display: none; "></div></td>
+                    </tr>
+                    <tr>
+                        <td>Respuestas: </td><td><div class="tooltip-item" id="tooltipSerie2" style="display: none; "></div></td>
                     </tr>
                     <tr>
                         <td>Ratio A/R: </td><td><div class="tooltip-item" id="tooltipRatio" style="display: none; "></div></td>
@@ -39,7 +46,12 @@ global $CFG;
                     <tr>
                         <td>Ratio R/A: </td><td><div class="tooltip-item" id="tooltipInvRatio" style="display: none; "></div></td>
                     </tr>
-                </tbody></table>
+                </tbody>
+            </table>
+        </div>
+        <br>
+        <div id="userMessages" style="border: 1px solid #AAA; margin-left: 10px; height: 400px; overflow: auto;">
+            Pasa el ratón por encima del gráfico para ver aquí los mensajes del usuario
         </div>
     </div>
 </div>
@@ -47,8 +59,14 @@ global $CFG;
 <script type="text/javascript">
 //<![CDATA[
 $(document).ready(function(){
+    //user ids
+    var user_ids = <?php echo $user_ids; ?>;
+
     // users full names
     var names = <?php echo $names; ?>;
+
+    // teacher flag
+    var is_teacher = <?php echo $isteacher; ?>;
 
     // the "x" values from the data will go into the ticks array.
     var ticks = <?php echo $ticks; ?>;
@@ -57,19 +75,16 @@ $(document).ready(function(){
     var serie1 = <?php echo $serie1; ?>;
     var serie2 = <?php echo $serie2; ?>;;
 
-    // Custom color arrays are set up for each series to get the look that is desired.
-    // Two color arrays are created for the default and optional color which the user can pick.
-    var greenColors = ["#526D2C", "#77933C", "#C57225", "#C57225"];
-
     // To accomodate changing y axis, need to keep track of plot options, so they are defined separately
     // changing axes will require recreating the plot, so need to keep
     // track of state changes.
     var plotOptions = {
         // We set up a customized title which acts as labels for the left and right sides of the pyramid.
-        title: '<div style="float:left;width:50%;text-align:center">Aportaciones</div><div style="float:right;width:50%;text-align:center">Respuestas</div>',
+        title: '<div style="float:left;width:50%;text-align:center">Aportaciones</div>\n\
+                <div style="float:right;width:50%;text-align:center">Respuestas</div>',
 
         // by default, the series will use the green color scheme.
-        seriesColors: greenColors,
+        seriesColors: ["#416D9C", "#70A35E"],
 
         grid: {
             drawBorder: false,
@@ -123,27 +138,38 @@ $(document).ready(function(){
 
     // bind to the data highlighting event to make custom tooltip:
     $('.jqplot-target').bind('jqplotDataHighlight', function(evt, seriesIndex, pointIndex, data) {
-        // Here, assume first series is male poulation and second series is female population.
         // Adjust series indices as appropriate.
         var serie1 = Math.abs(plot1.series[0].data[pointIndex][1]);
         var serie2 = Math.abs(plot1.series[1].data[pointIndex][1]);
         var ratio = serie1 / serie2;
         var invratio = 1 / ratio;
 
-        $('#tooltipMale').stop(true, true).fadeIn(250).html(serie1);
-        $('#tooltipFemale').stop(true, true).fadeIn(250).html(serie2);
+        $('#tooltipSerie1').stop(true, true).fadeIn(250).html(serie1);
+        $('#tooltipSerie2').stop(true, true).fadeIn(250).html(serie2);
         $('#tooltipRatio').stop(true, true).fadeIn(250).html(ratio.toPrecision(4));
         $('#tooltipInvRatio').stop(true, true).fadeIn(250).html(invratio.toPrecision(4));
 
-        // Since we don't know which axis is rendererd and acive with out a little extra work,
-        // just use the supplied ticks array to get the age label.
-        $('#tooltipAge').stop(true, true).fadeIn(250).html(ticks[pointIndex] + ' ' + names[pointIndex]);
+        // use the supplied ticks array to get user label
+        $('#tooltilpUser').stop(true, true).fadeIn(250).html(ticks[pointIndex] + ' ' + names[pointIndex]);
+        $('#tooltilpRole').stop(true, true).fadeIn(250).html(is_teacher[pointIndex] ? 'profesor' : 'alumno');
+
+        $.ajaxSetup ({
+            cache: false
+        });
+        var ajax_load = "<img src=\"<?php echo $OUTPUT->pix_url('i/loading'); ?>\" alt=\"loading\" />";
+        //  load() functions
+        <?php $ajax_url= new moodle_url('/local/cicei_snatools/forum_messages_ajax.php', $PAGE->url->params()); ?>
+        var loadUrl = "<?php echo $ajax_url->out(false); ?>&ajax=1&userid="
+            + user_ids[pointIndex]
+            + "&forumsids=<?php echo $forumsids; ?>"
+            + "&discussionsids=<?php echo $discussionsids; ?>";
+        $("#userMessages").html(ajax_load).load(loadUrl);
     });
 
     // bind to the data highlighting event to make custom tooltip:
     $('.jqplot-target').bind('jqplotDataUnhighlight', function(evt, seriesIndex, pointIndex, data) {
         // clear out all the tooltips.
-        $('.tooltip-item').stop(true, true).fadeOut(200).html('');
+        //$('.tooltip-item').stop(true, true).fadeOut(200).html('');
     });
 });
 //]]>
