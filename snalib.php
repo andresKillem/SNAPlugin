@@ -167,10 +167,12 @@ abstract class SNA_Tool implements SNA_Analyzer, SNA_Matrix {
         $cell->text = "Legend";
         $legend_table->head[] = $cell;
 
+        $content = html_writer::table($legend_table) . html_writer::tag('div', html_writer::table($table), array('style' => 'height: 600px; overflow:auto;'));
+
         if ($return) {
-            return html_writer::table($legend_table) . html_writer::table($table);
+            return $content;
         } else {
-            echo html_writer::table($legend_table) . html_writer::table($table);
+            echo $content;
         }
     }
 
