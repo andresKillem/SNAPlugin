@@ -249,9 +249,9 @@ abstract class SNA_Tool implements SNA_Analyzer, SNA_Matrix {
             }
             $node_list[] = $node;
         }
-        //$graph = "RGraph";
+        $graph = "RGraph";
         //$graph = "Hypertree";
-        $graph = "ForceDirected";
+        //$graph = "ForceDirected";
         $json = json_encode($node_list);
         include 'jit_graph.php';
     }

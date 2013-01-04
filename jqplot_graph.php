@@ -73,7 +73,10 @@ $(document).ready(function(){
 
     // The "y" values of the data are put into seperate series arrays.
     var serie1 = <?php echo $serie1; ?>;
-    var serie2 = <?php echo $serie2; ?>;;
+    var serie2 = <?php echo $serie2; ?>;
+
+    // adjust chart div height to series length
+    $('#chart4').height(27 + (ticks.length * (23 + 3)) + 22);
 
     // To accomodate changing y axis, need to keep track of plot options, so they are defined separately
     // changing axes will require recreating the plot, so need to keep
@@ -167,10 +170,10 @@ $(document).ready(function(){
     });
 
     // bind to the data highlighting event to make custom tooltip:
-    $('.jqplot-target').bind('jqplotDataUnhighlight', function(evt, seriesIndex, pointIndex, data) {
+    /*$('.jqplot-target').bind('jqplotDataUnhighlight', function(evt, seriesIndex, pointIndex, data) {
         // clear out all the tooltips.
         //$('.tooltip-item').stop(true, true).fadeOut(200).html('');
-    });
+    });*/
 });
 //]]>
 </script>
