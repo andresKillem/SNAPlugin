@@ -12,6 +12,8 @@ $forumsids = optional_param('forumsids', '', PARAM_RAW_TRIMMED);
 $forumsids = explode(',', $forumsids);
 $discussionsids = optional_param('discussionsids', '', PARAM_RAW_TRIMMED);
 $discussionsids = explode(',', $discussionsids);
+$groupsids = optional_param('groupsids', '', PARAM_RAW_TRIMMED);
+$groupsids = explode(',', $groupsids);
 
 // Get course and context
 switch ($searchcontext) {
@@ -41,6 +43,11 @@ switch ($searchcontext) {
 // Check login
 require_course_login($course, true, $cm);
 
+// Basic JSON encoded response object
+$response = new stdClass();
+$response->replies = array();
+$response->responses = array();
+
 if ($ajax) {
     switch ($searchcontext) {
         case 'course':
@@ -67,49 +74,75 @@ if ($ajax) {
             die("Input error");
     }
 
-    $posts = array();
+    $replies = array();
     foreach ($discussions as $id => $value) {
-        $posts = array_merge($posts, $DB->get_records('forum_posts', array('discussion' => $id, 'userid' => $userid), 'created ASC'));
+        $replies = array_merge($replies, $DB->get_records('forum_posts', array('discussion' => $id, 'userid' => $userid), 'created ASC'));
     }
 
-    $content = '';
-    foreach ($posts as $post) {
-        ?>
-        <div class = "forumpost clearfix">
-            <div class = "row header clearfix">
-                <div class = "topic" style="margin-left: 0px;">
-                    <div class = "subject">
-                        <a href="<?php echo $CFG->wwwroot . '/mod/forum/discuss.php?d=' . $discussions[$post->discussion]->id . '#p' . $post->id; ?>" target="_blank">
-                            <?php echo $post->subject; ?>
-                        </a>
-                    </div>
-                    <div class = "author">
-                        <a href="<?php echo $CFG->wwwroot . '/mod/forum/discuss.php?d=' . $discussions[$post->discussion]->id; ?>" target="_blank">
-                            <?php echo $discussions[$post->discussion]->name; ?>
-                        </a>
-                        -
-                        <a href="<?php echo $CFG->wwwroot . '/mod/forum/view.php?f=' . $forums[$discussions[$post->discussion]->forum]->id; ?>" target="_blank">
-                            <?php echo $forums[$discussions[$post->discussion]->forum]->name; ?>
-                        </a>
+    $responses = array();
+    foreach ($discussions as $id => $value) {
+        foreach ($replies as $post) {
+            if (in_array(0, $groupsids) || empty($groupsids)) {
+                $where = 'discussion = ? AND parent = ? AND userid != ?';
+                $params = array($id, $post->id, $userid);
+            } else {
+                $where = 'discussion = ? AND parent = ? AND userid != ? AND userid IN (SELECT userid FROM {groups_members} WHERE groupid IN (?))';
+                $params = array($id, $post->id, $userid, implode(',', $groupsids));
+            }
+            $responses = array_merge($responses, $DB->get_records_select('forum_posts', $where , $params, 'created ASC'));
+        }
+    }
+
+    foreach (array('replies' => $replies, 'responses' => $responses) as $name => $posts) :
+        ob_start();
+        foreach ($posts as $post) : ?>
+            <div class = "forumpost clearfix">
+                <div class = "row header clearfix">
+                    <div class = "topic" style="margin-left: 0px;">
+                        <div class="left picture">
+                            <?php
+                            $postuser = $DB->get_record('user', array('id'=>$post->userid));
+                            echo $OUTPUT->user_picture($postuser, array('courseid'=>$course->id));
+                            ?>
+                        </div>
+                        <div class = "subject">
+                            <a href="<?php echo $CFG->wwwroot . '/mod/forum/discuss.php?d=' . $discussions[$post->discussion]->id . '#p' . $post->id; ?>" target="_blank">
+                                <?php echo $post->subject; ?>
+                            </a>
+                        </div>
+                        <div class = "author">
+                            <a href="<?php echo $CFG->wwwroot . '/mod/forum/discuss.php?d=' . $discussions[$post->discussion]->id; ?>" target="_blank">
+                                <?php echo $discussions[$post->discussion]->name; ?>
+                            </a>
+                            -
+                            <a href="<?php echo $CFG->wwwroot . '/mod/forum/view.php?f=' . $forums[$discussions[$post->discussion]->forum]->id; ?>" target="_blank">
+                                <?php echo $forums[$discussions[$post->discussion]->forum]->name; ?>
+                            </a>
+                        </div>
                     </div>
                 </div>
-            </div>
-            <div class = "row maincontent clearfix">
-                <div class = "no-overflow">
-                    <div class = "content">
-                        <div class = "posting fullpost">
-                            <?php echo $post->message; ?>
+                <div class = "row maincontent clearfix">
+                    <div class = "no-overflow">
+                        <div class = "content">
+                            <div class = "posting fullpost">
+                                <?php
+                                // format the post body
+                                $post->message = file_rewrite_pluginfile_urls($post->message, 'pluginfile.php', $context->id, 'mod_forum', 'post', $post->id);
+                                $options = new stdClass;
+                                $options->para = false;
+                                $options->trusted = $post->messagetrust;
+                                $options->context = $context;
+                                $post->message = format_text($post->message, $post->messageformat, $options, $course->id);
+                                echo $post->message;
+                                ?>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
-        </div>
-        <?php
-    }
-    echo $content;
-    return;
-} else {
-    die('Not allowed');
-//redirect("course/view.php?id= $course->id", 'Not allowed');
+    <?php
+        endforeach;
+        $response->$name = ob_get_clean();
+    endforeach;
 }
-?>
+echo json_encode($response);

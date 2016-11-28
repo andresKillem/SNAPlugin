@@ -14,6 +14,7 @@ interface SNA_Matrix {
     function getPajekMatrix();
     // graphs views
     function renderNodesGraph();
+    function renderNodesGraphAlt();
     function renderBarsGraph();
 }
 
@@ -67,9 +68,10 @@ abstract class SNA_Tool implements SNA_Analyzer, SNA_Matrix {
         return $this->fixed_data_array;
     }
 
-    public function renderTable($return = false) {
+    public function renderTable() {
         global $DB;
         global $OUTPUT;
+        global $PAGE;
 
         // Get max value in data array
         $max_value = SNAToolUtils::matrix_max($this->data_array);
@@ -78,7 +80,7 @@ abstract class SNA_Tool implements SNA_Analyzer, SNA_Matrix {
         $this->getUsersVector();
 
         // Basic cell styles
-        $cellstyle = 'text-align: center; color: #ffffcc; font-weight: bold; padding: 1px; line-height: 25px;';
+        $cellstyle = 'text-align: center; font-weight: bold; padding: 1px; line-height: 25px;';
         $firstcellstyle = 'background-color: #EEEEEE; background-image: none; text-align: center; padding: 1px;';
         $lastcellstyle = 'background-color: #EEEEEE; font-weight: bold; line-height: 25px; text-align: center; padding: 1px;';
 
@@ -94,14 +96,17 @@ abstract class SNA_Tool implements SNA_Analyzer, SNA_Matrix {
 
         // Build table
         $table = new html_table();
-        //$table->attributes = array('class' => 'ars-table');
+        $table->id = 'ars-table';
+        $table->attributes = array('class'=>'ars-table');
 
         // Header
         $cell = new html_table_cell();
         $cell->style = $firstcellstyle;
-        $cell->text = "Receptor \ Emisor";
+        $cell->text = "";
         $table->head[] = $cell;
 
+        $total_columns = array();
+        $total_rows = array();
         $users = $DB->get_records_list('user', 'id', array_values($this->users_array));
         foreach ($this->users_array as $userid1) {
             // Start a new row
@@ -116,7 +121,7 @@ abstract class SNA_Tool implements SNA_Analyzer, SNA_Matrix {
             $row->cells[] = $cell;
             $table->head[] = $cell;
 
-            $totalcount = 0;
+            $total_rows[$userid1] = 0;
             // Add a cell for each user relation
             foreach ($this->users_array as $userid2) {
                 if (isset($this->data_array[$userid1][$userid2])) {
@@ -125,7 +130,7 @@ abstract class SNA_Tool implements SNA_Analyzer, SNA_Matrix {
                     if ($logscaled >= count($colors)) $logscaled--;
                     else if ($logscaled <= 0) $logscaled = 1;
                     $cellcolor = $colors[$logscaled];
-                    $totalcount += $cellcontent;
+                    $total_rows[$userid1] += $cellcontent;
                 } else {
                     $cellcontent = '';
                     $cellcolor = $colors[0];
@@ -134,12 +139,18 @@ abstract class SNA_Tool implements SNA_Analyzer, SNA_Matrix {
                 $cell->style = $cellstyle.$cellcolor;
                 $cell->text = $cellcontent;
                 $row->cells[] = $cell;
+                if (!isset($total_columns[$userid2])) {
+                    $total_columns[$userid2] = 0;
+                }
+                if (is_numeric($cellcontent)) {
+                    $total_columns[$userid2] += $cellcontent;
+                }
             }
 
-            // Last cell has total
+            // Last cell in row has total_row count
             $cell = new html_table_cell();
             $cell->style = $lastcellstyle;
-            $cell->text = $totalcount;
+            $cell->text = $total_rows[$userid1];
             $row->cells[] = $cell;
 
             // Add row to table
@@ -148,32 +159,38 @@ abstract class SNA_Tool implements SNA_Analyzer, SNA_Matrix {
 
         // last header cell
         $cell = new html_table_cell();
-        $cell->style = $firstcellstyle;
-        $cell->text = "Total";
+        $cell->style = $lastcellstyle;
+        $cell->text = get_string('total', 'local_cicei_snatools');
         $table->head[] = $cell;
+
+        // Last row
+        $cell = new html_table_cell();
+        $cell->style = $lastcellstyle;
+        $cell->text = get_string('total', 'local_cicei_snatools');
+        $table->footer[] = $cell;
+        foreach ($total_columns as $total) {
+            $cell = new html_table_cell();
+            $cell->style = $lastcellstyle;
+            $cell->text = $total;
+            $table->footer[] = $cell;
+        }
+        $cell = new html_table_cell();
+        $cell->style = $lastcellstyle;
+        $cell->text = array_sum($total_columns) . ' \ ' . array_sum($total_rows) ;
+        $table->footer[] = $cell;
 
         // legend table
         $legend_table = new html_table();
         $legend_row = new html_table_row();
-        foreach ($colors as $color) {
+        foreach ($colors as $i => $color) {
             $cell = new html_table_cell();
             $cell->style = $cellstyle.$color."width: 25px; height: 25px;";
-            $cell->text = "";
+            $cell->text = get_string('heat_level', 'local_cicei_snatools', $i);
             $legend_row->cells[] = $cell;
         }
         $legend_table->data[] = $legend_row;
-        $cell = new html_table_cell();
-        $cell->colspan = 6;
-        $cell->text = "Legend";
-        $legend_table->head[] = $cell;
 
-        $content = html_writer::table($legend_table) . html_writer::tag('div', html_writer::table($table), array('style' => 'height: 600px; overflow:auto;'));
-
-        if ($return) {
-            return $content;
-        } else {
-            echo $content;
-        }
+        include 'views/heat_table.php';
     }
 
     public function getPajekMatrix() {
@@ -255,7 +272,69 @@ abstract class SNA_Tool implements SNA_Analyzer, SNA_Matrix {
         //$graph = "Hypertree";
         //$graph = "ForceDirected";
         $json = json_encode($node_list);
-        include 'jit_graph.php';
+        include 'views/jit_graph.php';
+    }
+
+    public function renderNodesGraphAlt() {
+        global $DB, $OUTPUT, $COURSE;
+
+        $this->getUsersVector();
+        $this->getFixedDataMatrix();
+        $users = $DB->get_records_list('user', 'id', array_values($this->users_array));
+
+        $roles_ids = $DB->get_records_list('role','shortname', array('manager', 'editingteacher', 'teacher'));
+        $context = get_context_instance(CONTEXT_COURSE, $COURSE->id);
+        $teachers = array_keys(get_role_users(array_keys($roles_ids), $context, true, 'u.id'));
+
+        $users_id_map = array();
+        $users_count = 0;
+
+        // Create user nodes
+        $nodes = array();
+        foreach ($this->users_array as $userid1) {
+            $node = new stdClass();
+            $node->userid = $userid1;
+            $node->name = fullname($users[$userid1]);
+            $node->photo = $OUTPUT->user_picture($users[$userid1], array('size' => 35, 'popup' => true));
+            $node->contributions = 0;
+            foreach ($this->fixed_data_array as $row) {
+                $node->contributions += $row[$userid1];
+            }
+            $node->responses = 0;
+            foreach ($this->fixed_data_array[$userid1] as $userid2 => $data) {
+                if ($userid1 != $userid2) {
+                    $node->responses += $data;
+                }
+            }
+            $node->size = $node->contributions + $node->responses;
+            $node->group = in_array($userid1, $teachers) ? 1 : 0;
+            //$node->group = $node->contribution + $node->responses;
+            $nodes[] = $node;
+            // Map nodes index
+            $users_id_map[$userid1] = $users_count;
+            $users_count++;
+        }
+
+        // Create links
+        $links = array();
+        foreach ($this->users_array as $userid1) {
+            if (isset($this->data_array[$userid1])) {
+                foreach ($this->data_array[$userid1] as $userid2 => $data) {
+                    $link = new stdClass();
+                    $link->source = $users_id_map[$userid2];
+                    $link->target = $users_id_map[$userid1];
+                    $link->value = $data;
+                    $links[] = $link;
+                }
+            }
+        }
+
+        $data = new stdClass();
+        $data->links = $links;
+        $data->nodes = $nodes;
+
+        $graph_data = json_encode($data);
+        include 'views/d3js_graph.php';
     }
 
     public function renderBarsGraph() {
@@ -278,7 +357,7 @@ abstract class SNA_Tool implements SNA_Analyzer, SNA_Matrix {
         foreach ($this->users_array as $userid1) {
             $names[$userid1] = fullname($users[$userid1]);
             $isteacher[$userid1] = in_array($userid1, $teachers) ? 1 : 0;
-            $labels[$userid1] = $OUTPUT->user_picture($users[$userid1], array('size' => 23));
+            $labels[$userid1] = $OUTPUT->user_picture($users[$userid1], array('size' => 23, 'alt' => false));
 
             $made = 0;
             foreach ($this->fixed_data_array as $row) {
@@ -288,7 +367,9 @@ abstract class SNA_Tool implements SNA_Analyzer, SNA_Matrix {
 
             $received = 0;
             foreach ($this->fixed_data_array[$userid1] as $userid2 => $data) {
-                $received += $data;
+                if ($userid1 != $userid2) {
+                    $received += $data;
+                }
             }
             $comments_received[$userid1] = $received;
         }
@@ -302,8 +383,9 @@ abstract class SNA_Tool implements SNA_Analyzer, SNA_Matrix {
 
         $forumsids = implode(',', $this->params->forumsids);
         $discussionsids = implode(',', $this->params->discussionsids);
+        $groupsids = implode(',', $this->params->groupsids);
 
-        include 'jqplot_graph.php';
+        include 'views/jqplot_graph.php';
     }
 
     // Factory to create objects
@@ -312,13 +394,13 @@ abstract class SNA_Tool implements SNA_Analyzer, SNA_Matrix {
             case 'collaboration':
                 switch ($params->searchcontext) {
                     case 'course':
-                        $tool = new SNA_CourseCollaboration($params->course, $params->forumsids);
+                        $tool = new SNA_CourseCollaboration($params->course, $params->forumsids, $params->groupsids);
                         break;
                     case 'forum':
-                        $tool = new SNA_ForumCollaboration($params->forum, $params->discussionsids);
+                        $tool = new SNA_ForumCollaboration($params->forum, $params->discussionsids, $params->groupsids);
                         break;
                     case 'discussion':
-                        $tool = new SNA_DiscussionCollaboration($params->discussion);
+                        $tool = new SNA_DiscussionCollaboration($params->discussion, $params->groupsids);
                         break;
                     default:
                         $tool = NULL;
@@ -337,10 +419,12 @@ abstract class SNA_Tool implements SNA_Analyzer, SNA_Matrix {
  */
 class SNA_CourseCollaboration extends SNA_Tool {
     protected $forumsids;
+    protected $groupsids;
 
-    function __construct($course, $forumsids = array()) {
+    function __construct($course, $forumsids = array(), $groupsids = array()) {
         $this->course = $course;
         $this->forumsids = $forumsids;
+        $this->groupsids = $groupsids;
     }
 
     public function analyze() {
@@ -358,7 +442,7 @@ class SNA_CourseCollaboration extends SNA_Tool {
             }
 
             foreach ($forums as $forum) {
-                $forum_collaboration = new SNA_ForumCollaboration($forum);
+                $forum_collaboration = new SNA_ForumCollaboration($forum, array(), $this->groupsids);
                 $result = $forum_collaboration->analyze();
                 if (empty($result)) {
                     // Merge this results with main results
@@ -381,10 +465,12 @@ class SNA_CourseCollaboration extends SNA_Tool {
 class SNA_ForumCollaboration extends SNA_Tool {
     protected $forum;
     protected $discussionsids;
+    protected $groupsids;
 
-    function __construct($forum, $discussionsids = array()) {
+    function __construct($forum, $discussionsids = array(), $groupsids = array()) {
         $this->forum = $forum;
         $this->discussionsids = $discussionsids;
+        $this->groupsids = $groupsids;
     }
 
     public function analyze() {
@@ -405,7 +491,7 @@ class SNA_ForumCollaboration extends SNA_Tool {
 
             // For each discussion, count collaboration
             foreach ($discussions as $discussion) {
-                $discussion_collaboration = new SNA_DiscussionCollaboration($discussion);
+                $discussion_collaboration = new SNA_DiscussionCollaboration($discussion, $this->groupsids);
                 $result = $discussion_collaboration->analyze();
                 if (empty($result)) {
                     // Merge this results with main results
@@ -427,9 +513,11 @@ class SNA_ForumCollaboration extends SNA_Tool {
  */
 class SNA_DiscussionCollaboration extends SNA_Tool {
     protected $discussion;
+    protected $groupsids;
 
-    function __construct($discussion) {
+    function __construct($discussion, $groups_ids) {
         $this->discussion = $discussion;
+        $this->groupsids = $groups_ids;
     }
 
     public function analyze() {
@@ -440,20 +528,41 @@ class SNA_DiscussionCollaboration extends SNA_Tool {
             $data = & $this->data_array;
 
             // For each post in discussion, count collaboration
-            $posts = $DB->get_records('forum_posts', array('discussion' => $this->discussion->id), 'created ASC');
+            if (in_array(0, $this->groupsids) || empty($this->groupsids)) {
+                $posts = $DB->get_records('forum_posts', array('discussion' => $this->discussion->id), 'created ASC');
+            } else {
+                $sql = "SELECT * FROM {forum_posts} WHERE discussion = ? AND userid IN (
+                            SELECT userid FROM {groups_members} WHERE groupid IN (?)
+                        )";
+                $posts = $DB->get_records_sql($sql, array($this->discussion->id, implode(',', $this->groupsids)));
+            }
             foreach ($posts as $post) {
+                // If parent post is filtered by group user selection, ignore it
                 if ($post->parent != 0) {
-                    $parentpost = $posts[$post->parent];
-
-                    // Count collaboration only if user is not replying to himself
-                    if ($parentpost->userid != $post->userid) {
-                        // Initialize array with user ids
-                        if (!isset($data[$parentpost->userid]) || !isset($data[$parentpost->userid][$post->userid])) {
-                            $data[$parentpost->userid][$post->userid] = 0;
-                        }
-                        $data[$parentpost->userid][$post->userid] += 1;
+                    if (isset($posts[$post->parent])) {
+                        $parentpost = $posts[$post->parent];
+                    } else {
+                        continue;
                     }
+                } else {
+                    $parentpost = $post;
                 }
+
+                // Count collaboration only if user is not replying to himself
+                // Note: behaviour disabled, so we add 1 in both cases
+                if ($parentpost->userid != $post->userid) {
+                    $value = 1;
+                } else {
+                    $value = 1;
+                }
+
+                // Initialize array with user ids
+                if (!isset($data[$parentpost->userid]) || !isset($data[$parentpost->userid][$post->userid])) {
+                    $data[$parentpost->userid][$post->userid] = 0;
+                }
+
+                // Sum value
+                $data[$parentpost->userid][$post->userid] += $value;
             }
 
             return "";

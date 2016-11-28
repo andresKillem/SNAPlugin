@@ -14,49 +14,53 @@ class local_cicei_snatools_forum_analysis_form extends moodleform {
         $mform = & $this->_form;
 
         $course = $this->_customdata['course'];
-        $forum = $this->_customdata['forum'];
+        $parent_forum = $this->_customdata['forum'];
         $searchcontext = $this->_customdata['searchcontext'];
         $id = $this->_customdata['id'];
 
         // Forums selection
-        $mform->addElement('header', 'general', 'Forums');
-        if  ($searchcontext == 'course') {
-            $forums = array(0 => 'All forums');
-            foreach($DB->get_records('forum', array('course' => $id)) as $forum) {
-                $forums[$forum->id] = $forum->name;
-            }
-        } else {
-            $forums = array($forum->id => $forum->name);
+        $mform->addElement('header', 'general', get_string('forums', 'local_cicei_snatools'));
+        $forums = array(0 => get_string('all_forums', 'local_cicei_snatools'));
+        foreach ($DB->get_records('forum', array('course' => $course->id)) as $forum) {
+            $forums[$forum->id] = $forum->name;
         }
-        $attributes = array(
-            'multiple' => 'multiple',
-            //'style' => 'height: 200px;',
-        );
-        $mform->addElement('select', 'forumsids', 'Select forums to analyze', $forums, $attributes);
+        $mform->addElement('select', 'forumsids', get_string('select_forums', 'local_cicei_snatools'), $forums, array('multiple' => 'multiple'));
         if  ($searchcontext == 'course') {
             $mform->setDefault('forumsids', array(0));
         } else {
-            $mform->setDefault('forumsids', array($forum->id));
+            $mform->setDefault('forumsids', array($parent_forum->id));
         }
 
+        // Groups
+        $mform->addElement('header', 'general', get_string('groups', 'local_cicei_snatools'));
+        $groups = array(0 => get_string('all_groups', 'local_cicei_snatools'));
+        foreach (groups_get_all_groups($course->id) as $group) {
+            $groups[$group->id] = $group->name;
+        }
+        $mform->addElement('select', 'groupsids', get_string('select_groups', 'local_cicei_snatools'), $groups, array('multiple' => 'multiple'));
+        $mform->setDefault('groupsids', array(0));
+
         // Discussions selection
-        $mform->addElement('header', 'general', 'Discussions');
-        if ($searchcontext == 'discussion') {
-            $discussion = $DB->get_record('forum_discussions', array('id' => $id), '*', MUST_EXIST);
-            $discussions = array($discussion->id => $discussion->name);
+        $mform->addElement('header', 'general', get_string('discussions', 'local_cicei_snatools'));
+        $discussions = array(0 => get_string('all_discussions', 'local_cicei_snatools'));
+        // If forums were been selected, discussions will be loaded from that forums
+        $selected_forums = optional_param_array('forumsids', array(0 => 0), PARAM_INT);
+        if (!in_array(0, $selected_forums)) {
+            foreach ($DB->get_records_list('forum_discussions', 'forum', $selected_forums) as $discussion) {
+                $discussions[$discussion->id] = $discussion->name;
+            }
         } else {
-            $discussions = array(
-                0 => 'All discussions'
-            );
-            foreach ($DB->get_records('forum_discussions', array('course' => $course->id, 'forum' => $id)) as $discussion) {
+            // By default, discussions from current contextual forum are loaded
+            $conditions = array('course' => $course->id);
+            // If not in course searchcontext, filter by forum
+            if ($searchcontext != 'course') {
+                $conditions['forum'] = $parent_forum->id;
+            }
+            foreach ($DB->get_records('forum_discussions', $conditions) as $discussion) {
                 $discussions[$discussion->id] = $discussion->name;
             }
         }
-        $attributes = array(
-            'multiple' => 'multiple',
-            //'style' => 'height: 200px;',
-        );
-        $mform->addElement('select', 'discussionsids', 'Select discussions to analyze', $discussions, $attributes);
+        $mform->addElement('select', 'discussionsids', get_string('select_discussions', 'local_cicei_snatools'), $discussions, array('multiple' => 'multiple'));
         if ($searchcontext == 'discussion') {
             $mform->setDefault('discussionsids', array($discussion->id));
         } else {
@@ -64,22 +68,23 @@ class local_cicei_snatools_forum_analysis_form extends moodleform {
         }
 
         // Analysis configuration
-        $mform->addElement('header', 'general', 'Analysis parameters');
+        $mform->addElement('header', 'general', get_string('analysys_section', 'local_cicei_snatools'));
         $functions = array(
-            'collaboration' => "Collaboration between users",
+            'collaboration' => get_string('collaboration_analysys', 'local_cicei_snatools'),
         );
-        $mform->addElement('select', 'function', 'Select function to execute', $functions);
+        $mform->addElement('select', 'function', get_string('select_function', 'local_cicei_snatools'), $functions);
 
         $views = array(
-            'table' => "Table",
-            'bars' => "Bars graph",
-            'nodes'  => "Nodes graph",
-            'pajek' => "Pajek users array file and matrix file",
+            'table' => get_string('view_table', 'local_cicei_snatools'),
+            'bars' => get_string('view_bars', 'local_cicei_snatools'),
+            'nodes'  => get_string('view_nodes', 'local_cicei_snatools'),
+            'nodes_alt' => get_string('view_nodes_alt', 'local_cicei_snatools'),
+            'pajek' => get_string('view_pajek', 'local_cicei_snatools'),
         );
-        $mform->addElement('select', 'view', 'Select view', $views);
+        $mform->addElement('select', 'view', get_string('select_view', 'local_cicei_snatools'), $views);
 
         // Add submit button
-        $this->add_action_buttons(false, 'Analyze');
+        $this->add_action_buttons(false, get_string('submit_button', 'local_cicei_snatools'));
     }
 }
 

@@ -72,26 +72,26 @@ $colors = array(
     <div id="center-container" style="position: relative;">
         <div id="jitcontainer">
             <div style="float: left;">
-                <button id="rg-button" type="button" onclick="javascript:init_jit_graph('RGraph', json); $('#rg-button').addClass('selected-graph'); $('#fd-button').removeClass('selected-graph');">View as RGraph</button>
+                <button id="RGraph-button" type="button" onclick="javascript:init_jit_graph('RGraph', json); $('#rg-button').addClass('selected-graph'); $('#fd-button').removeClass('selected-graph');"><?php echo get_string('nodes_rgraph', 'local_cicei_snatools'); ?></button>
                 <!--<button type="button" onclick="javascript:init_jit_graph('Hypertree', json)">View as Hypertree</button>-->
-                <button id="fd-button" type="button" onclick="javascript:init_jit_graph('ForceDirected', json); $('#fd-button').addClass('selected-graph'); $('#rg-button').removeClass('selected-graph');">View as Force Directed</button>
+                <button id="ForceDirected-button" type="button" onclick="javascript:init_jit_graph('ForceDirected', json); $('#fd-button').addClass('selected-graph'); $('#rg-button').removeClass('selected-graph');"><?php echo get_string('nodes_force_directed', 'local_cicei_snatools'); ?></button>
             </div>
             <div style="float: right;">
                 <strong id="jit-zoom">Zoom: </strong>
                 <button type="button" onclick="javascript:zoom_jit_graph(-1);">-</button>
                 <button type="button" onclick="javascript:zoom_jit_graph(1);">+</button>
-                <button type="button" onclick="javascript:zoom_jit_graph(0);">Reset</button>
+                <button type="button" onclick="javascript:zoom_jit_graph(0);"><?php echo get_string('reset_button', 'local_cicei_snatools'); ?></button>
             </div>
         </div>
         <div id="infovis">
-            <h1>Loading...</h1>
+            <h1><?php echo get_string('loading', 'local_cicei_snatools'); ?></h1>
         </div>
         <div id="jitcontainer" style="position:absolute; bottom: 0; right: 0;">
             <div>
                 <ul>
-                    <li style="color: <?php echo $colors['in'];?>">In</li>
-                    <li style="color: <?php echo $colors['out'];?>">Out</li>
-                    <li style="color: <?php echo $colors['in&out'];?>">In & Out</li>
+                    <li style="color: <?php echo $colors['in'];?>"><?php echo get_string('input', 'local_cicei_snatools'); ?></li>
+                    <li style="color: <?php echo $colors['out'];?>"><?php echo get_string('output', 'local_cicei_snatools'); ?></li>
+                    <li style="color: <?php echo $colors['in&out'];?>"><?php echo get_string('input_output', 'local_cicei_snatools'); ?></li>
                 </ul>
             </div>
         </div>
@@ -267,9 +267,7 @@ $colors = array(
                     if (typeof nodegraph.onClick == 'function') {
                         nodegraph.onClick(node.id, {
                             hideLabels: false,
-                            onComplete: function() {
-                                //console.log("done");
-                            }
+                            onComplete: function() {}
                         });
                         // Replot grapg (Force Directed)
                     } else {
@@ -306,8 +304,6 @@ $colors = array(
             //This method is called right before plotting a node
             onBeforePlotNode: function(node) {
                 if (node.selected) {
-                    console.log("SELECTED");
-                    console.log(node);
                     node.setData('alpha', 1);
                     node.setData('color', '<?php echo $colors['selected'] ; ?>');
                     node.setLabelData('color', '<?php echo $colors['selected'] ; ?>');
@@ -338,7 +334,6 @@ $colors = array(
                 var nodeFrom = nodegraph.graph.getNode(adj.data.$direction[0]);
                 var nodeTo = nodegraph.graph.getNode(adj.data.$direction[1]);
                 if (nodeFrom.selected || nodeTo.selected) {
-                    //console.log(adj);
                     var color;
                     if (adj.data.$type == 'double_arrow') {
                         color = '<?php echo $colors['in&out']; ?>';
@@ -369,10 +364,10 @@ $colors = array(
                     var data;
                     if (adj.data.$type == 'double_arrow') {
                         color = '<?php echo $colors['in&out']; ?>';
-                        data = adj.data.weight_in + " in, " + adj.data.weight_out + " out";
+                        data = adj.data.weight_in + " <?php echo get_string('input', 'local_cicei_snatools'); ?>, " + adj.data.weight_out + " <?php echo get_string('output', 'local_cicei_snatools'); ?>";
                     } else {
                         color = nodeFrom.selected ? '<?php echo $colors['in']; ?>' : '<?php echo $colors['out']; ?>';
-                        data = adj.data.weight + (nodeFrom.selected ? " in" : " out");
+                        data = adj.data.weight + (nodeFrom.selected ? " <?php echo get_string('input', 'local_cicei_snatools'); ?>" : " <?php echo get_string('output', 'local_cicei_snatools'); ?>");
                     }
                     html += '<li style="color: ' + color + '">';
                     html += child.data.photohtml + " " + child.name + " : "  + data;
@@ -414,6 +409,6 @@ $colors = array(
     // Create graph
     var graphtype = "<?php echo $graph; ?>";
     var json = <?php echo $json; ?>;
-    window.onload = function(){ init_jit_graph(graphtype, json); $('#fd-button').addClass('selected-graph');};
+    window.onload = function(){ init_jit_graph(graphtype, json); $('#<?php echo $graph; ?>-button').addClass('selected-graph');};
     //]]>
 </script>

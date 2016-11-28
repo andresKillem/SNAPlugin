@@ -14,7 +14,7 @@ $params = array(
     'searchcontext' => $searchcontext,
     'id' => $id,
 );
-$page_url= new moodle_url('/local/cicei_snatools/forum_analysis.php', $params);
+$page_url= new moodle_url('/local/cicei_snatools/forum_analysis.php#sna-results', $params);
 $PAGE->set_url($page_url);
 
 // Init vars
@@ -30,14 +30,14 @@ switch ($searchcontext) {
         $course = $DB->get_record('course', array('id' => $id), '*', MUST_EXIST);
         $forum = NULL;
         $cm = NULL;
-        $title = "Forum Analysis tool - $course->fullname";
+        $title = get_string('page_title', 'local_cicei_snatools', $course->fullname);
         break;
     case 'forum':
         $cm = get_coursemodule_from_instance('forum', $id);
         $context = context_module::instance($cm->id);
         $course = $DB->get_record('course', array('id' => $cm->course), '*', MUST_EXIST);
         $forum = $DB->get_record('forum', array('id' => $id), '*', MUST_EXIST);
-        $title = "Forum Analysis tool - $forum->name";
+        $title = get_string('page_title', 'local_cicei_snatools', $course->fullname);
         break;
     case 'discussion':
         $discussion = $DB->get_record('forum_discussions', array('id' => $id), '*', MUST_EXIST);
@@ -45,10 +45,10 @@ switch ($searchcontext) {
         $context = context_module::instance($cm->id);
         $course = $DB->get_record('course', array('id' => $cm->course), '*', MUST_EXIST);
         $forum = $DB->get_record('forum', array('id' => $discussion->forum), '*', MUST_EXIST);
-        $title = "Forum Analysis tool - $discussion->name";
+        $title = get_string('page_title', 'local_cicei_snatools', $course->fullname);
         break;
     default:
-        notice("Input error");
+        notice(get_string('error', 'moodle'));
 }
 
 // Check login
@@ -67,7 +67,7 @@ echo $OUTPUT->heading($title);
 
 // Check if plugin is enabled
 if (!get_config('local_cicei_snatools', 'enabled')) {
-    notice("CICEI SNA Tools is disabled", "/course/view.php?id=$course->id");
+    notice(get_string('plugin_disabled', 'local_cicei_snatools'), "/course/view.php?id=$course->id");
 }
 
 // Check if user has capability to use the plugin
@@ -94,7 +94,6 @@ $mform_post->display();
 // Analysis results
 // Try to get data form form
 if ($fromform = $mform_post->get_data()) {
-    //print_object($fromform);
     $fromform->searchcontext = $searchcontext;
     $fromform->course = $course;
     $fromform->forum = $forum;
@@ -104,29 +103,30 @@ if ($fromform = $mform_post->get_data()) {
     // Run analysis
     $result = $tool->analyze();
     if (empty($result)) {
-        echo $OUTPUT->heading("Results");
+        echo html_writer::div('<br><br>', '', array('id' => 'sna-results'));
+
+        echo $OUTPUT->heading(get_string('results_title', 'local_cicei_snatools'), 2);
 
         // Select view
         switch($fromform->view) {
             case 'table':
-                echo html_writer::start_tag('center');
-                echo html_writer::tag('p', "How to read these results: each row represents a person collaboration with other people as the number of replies obtained to his forum posts");
                 $tool->renderTable();
-                echo html_writer::end_tag('center');
                 break;
             case 'pajek':
-                echo html_writer::tag('p', "Hint: copy and paste these contents into a file and open it with Pajek. Users Array is not needed to represent the matrix.");
                 $pajekusersvector = $tool->getPajekUsersVector();
                 $pajekmatrix = $tool->getPajekMatrix();
 
-                echo $OUTPUT->heading("Users array");
+                echo $OUTPUT->heading(get_string('pajek_users_array', 'local_cicei_snatools'));
                 echo $OUTPUT->box("<pre><code>$pajekusersvector</code></pre>");
 
-                echo $OUTPUT->heading("Matrix");
+                echo $OUTPUT->heading(get_string('pajek_matrix', 'local_cicei_snatools'));
                 echo $OUTPUT->box("<pre><code>$pajekmatrix</code></pre>");
                 break;
             case 'nodes':
                 $tool->renderNodesGraph();
+                break;
+            case 'nodes_alt':
+                $tool->renderNodesGraphAlt();
                 break;
             case 'bars':
                 $tool->renderBarsGraph();

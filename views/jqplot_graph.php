@@ -16,42 +16,26 @@ global $CFG, $OUTPUT, $PAGE;
 <script type="text/javascript" src="<?php echo $CFG->wwwroot ?>/local/cicei_snatools/vendors/jqplot/plugins/jqplot.canvasTextRenderer.min.js"></script>
 <script type="text/javascript" src="<?php echo $CFG->wwwroot ?>/local/cicei_snatools/vendors/jqplot/plugins/jqplot.canvasAxisLabelRenderer.min.js"></script>
 
-<div style="clear: both; text-align: center;">
-    <br>
-    <br>
-</div>
-
-<div style="clear: both;">
-    <div id="chart4" class="jqplot-target" style="width: 60%; height: 600px;  float:left;">
-    </div>
-    <div style="width: 40%; float: left;">
-        <div class="tooltip" style="border: 1px solid #AAA; margin-left: 10px; height: 200px;">
-            <table>
-                <tbody>
-                    <tr>
-                        <td>Usuario: </td><td><div class="tooltip-item" id="tooltilpUser" style="display: none; "></div></td>
-                    </tr>
-                    <tr>
-                        <td>Rol: </td><td><div class="tooltip-item" id="tooltilpRole" style="display: none; "></div></td>
-                    </tr>
-                    <tr>
-                        <td>Aportaciones: </td><td><div class="tooltip-item" id="tooltipSerie1" style="display: none; "></div></td>
-                    </tr>
-                    <tr>
-                        <td>Respuestas: </td><td><div class="tooltip-item" id="tooltipSerie2" style="display: none; "></div></td>
-                    </tr>
-                    <tr>
-                        <td>Ratio A/R: </td><td><div class="tooltip-item" id="tooltipRatio" style="display: none; "></div></td>
-                    </tr>
-                    <tr>
-                        <td>Ratio R/A: </td><td><div class="tooltip-item" id="tooltipInvRatio" style="display: none; "></div></td>
-                    </tr>
-                </tbody>
-            </table>
+<div class="row-fluid">
+    <div class="span6 well well-small">
+        <div style="height: 600px; overflow: auto;">
+            <div id="chart4" class="jqplot-target" style=""></div>
         </div>
-        <br>
-        <div id="userMessages" style="border: 1px solid #AAA; margin-left: 10px; height: 400px; overflow: auto;">
-            Pasa el ratón por encima del gráfico para ver aquí los mensajes del usuario
+    </div>
+    <div class="span6">
+        <ul id="reference-height" class="nav nav-tabs" style="margin: 0;">
+            <li class="active"><a id="main-tab-link" href="#user-messages" data-toggle="tab"><?php echo get_string('contributions', 'local_cicei_snatools'); ?> <span id="tooltip-serie-1" class="badge badge-info"></span></a></li>
+            <li><a href="#user-responses" data-toggle="tab"><?php echo get_string('responses', 'local_cicei_snatools'); ?> <span id="tooltip-serie-2" class="badge badge-success"></span></a></li>
+            <li class="disabled pull-right"><a><span id="tooltilpUser"><?php echo get_string('name', 'local_cicei_snatools'); ?> </span> <span class="label label-info"><?php echo get_string('role', 'local_cicei_snatools'); ?> <span id="tooltilpRole"></span></span></a></li>
+        </ul>
+        <div id="adjust-height" class="well well-small" style="overflow: auto;">
+            <div class="tab-content" style="margin: 0;">
+                <div id="user-messages" class="tab-pane active">
+                    <?php echo get_string('user_messages_load_help', 'local_cicei_snatools'); ?>
+                </div>
+                <div id="user-responses" class="tab-pane">
+                </div>
+            </div>
         </div>
     </div>
 </div>
@@ -83,8 +67,8 @@ $(document).ready(function(){
     // track of state changes.
     var plotOptions = {
         // We set up a customized title which acts as labels for the left and right sides of the pyramid.
-        title: '<div style="float:left;width:50%;text-align:center">Aportaciones</div>\n\
-                <div style="float:right;width:50%;text-align:center">Respuestas</div>',
+        title: '<div style="float:left;width:50%;text-align:center"><?php echo get_string('contributions', 'local_cicei_snatools'); ?></div>\n\
+                <div style="float:right;width:50%;text-align:center"><?php echo get_string('responses', 'local_cicei_snatools'); ?></div>',
 
         // by default, the series will use the green color scheme.
         seriesColors: ["#416D9C", "#70A35E"],
@@ -139,34 +123,53 @@ $(document).ready(function(){
 
     plot1 = $.jqplot('chart4', [serie1, serie2], plotOptions);
 
+    $(window).resize(function() {
+        plot1.replot();
+    });
+    $(window).load(function(){
+        plot1.replot();
+    });
+
     // bind to the data highlighting event to make custom tooltip:
     $('.jqplot-target').bind('jqplotDataHighlight', function(evt, seriesIndex, pointIndex, data) {
         // Adjust series indices as appropriate.
         var serie1 = Math.abs(plot1.series[0].data[pointIndex][1]);
         var serie2 = Math.abs(plot1.series[1].data[pointIndex][1]);
+        $('#tooltip-serie-1').html(serie1);
+        $('#tooltip-serie-2').html(serie2);
+
         var ratio = serie1 / serie2;
         var invratio = 1 / ratio;
-
-        $('#tooltipSerie1').stop(true, true).fadeIn(250).html(serie1);
-        $('#tooltipSerie2').stop(true, true).fadeIn(250).html(serie2);
-        $('#tooltipRatio').stop(true, true).fadeIn(250).html(ratio.toPrecision(4));
-        $('#tooltipInvRatio').stop(true, true).fadeIn(250).html(invratio.toPrecision(4));
+        //$('#tooltipRatio').html(ratio.toPrecision(4));
+        //$('#tooltipInvRatio').html(invratio.toPrecision(4));
+        <?php
+        //<span class="label label-info">ratio A/R <span id="tooltipRatio"></span></span>
+        //<span class="label label-info">ratio R/A <span id="tooltipInvRatio"></span></span>
+        ?>
 
         // use the supplied ticks array to get user label
-        $('#tooltilpUser').stop(true, true).fadeIn(250).html(ticks[pointIndex] + ' ' + names[pointIndex]);
-        $('#tooltilpRole').stop(true, true).fadeIn(250).html(is_teacher[pointIndex] ? 'profesor' : 'alumno');
+        $('#tooltilpUser').html(ticks[pointIndex] + ' ' + names[pointIndex]);
+        $('#tooltilpRole').html(is_teacher[pointIndex] ? '<?php echo get_string('role_teacher', 'local_cicei_snatools'); ?>' : '<?php echo get_string('role_student', 'local_cicei_snatools'); ?>');
 
         $.ajaxSetup ({
             cache: false
         });
-        var ajax_load = "<img src=\"<?php echo $OUTPUT->pix_url('i/loading'); ?>\" alt=\"loading\" />";
+        var ajax_load = "<div style=\"text-align: center;\"><img src=\"<?php echo $OUTPUT->pix_url('i/loading'); ?>\" alt=\"loading\" /></div>";
         //  load() functions
         <?php $ajax_url= new moodle_url('/local/cicei_snatools/forum_messages_ajax.php', $PAGE->url->params()); ?>
-        var loadUrl = "<?php echo $ajax_url->out(false); ?>&ajax=1&userid="
-            + user_ids[pointIndex]
+        var loadUrl = "<?php echo $ajax_url->out(false); ?>"
+            + "&ajax=1"
+            + "&userid=" + user_ids[pointIndex]
             + "&forumsids=<?php echo $forumsids; ?>"
-            + "&discussionsids=<?php echo $discussionsids; ?>";
-        $("#userMessages").html(ajax_load).load(loadUrl);
+            + "&discussionsids=<?php echo $discussionsids; ?>"
+            + "&groupsids=<?php echo $groupsids; ?>";
+        $("#user-messages").html(ajax_load);
+        $("#user-responses").html(ajax_load);
+        $.getJSON(loadUrl, function(json) {
+            $("#user-messages").html(json.replies);
+            $("#user-responses").html(json.responses);
+            $('#main-tab-link').click();
+        });
     });
 
     // bind to the data highlighting event to make custom tooltip:
@@ -174,6 +177,17 @@ $(document).ready(function(){
         // clear out all the tooltips.
         //$('.tooltip-item').stop(true, true).fadeOut(200).html('');
     });*/
+
+    $('[data-toggle="tab"]').click(function(e){
+        e.preventDefault();
+        $(this).parent().parent().children('.active').removeClass('active');
+        $(this).parent().addClass('active');
+        var dest = $(this).attr('href');
+        $(dest).parent().children('.active').removeClass('active');
+        $(dest).addClass('active');
+    });
+
+    $('#adjust-height').height(600 - $('#reference-height').height())
 });
 //]]>
 </script>
